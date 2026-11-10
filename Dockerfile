@@ -18,6 +18,7 @@ LABEL maintainer="DevOps Team" \
 # Explicit upstream release versions for reproducible builds
 ARG EASYTIER_VERSION="v2.6.4"
 ARG TTYD_VERSION="1.7.7"
+ARG SINGBOX_VERSION="1.14.1"
 
 # Set environment
 ENV LANG=C.UTF-8 \
@@ -38,7 +39,6 @@ RUN apk update && \
       tmux \
       vim \
       caddy \
-      sing-box \
       tzdata \
       procps && \
     rm -rf /var/cache/apk/*
@@ -60,6 +60,18 @@ RUN set -eux; \
     echo "Downloading ttyd ${TTYD_VERSION}..."; \
     curl -sSL -o /usr/local/bin/ttyd "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64"; \
     chmod +x /usr/local/bin/ttyd
+
+# Download and install sing-box (not shipped in Alpine 3.20 repos:
+# `apk add sing-box` fails the build with "no such package" — this broke
+# every deploy after 2026-10-17, including the singleton-guard fix)
+RUN set -eux; \
+    echo "Downloading sing-box ${SINGBOX_VERSION}..."; \
+    curl -sSL -o /tmp/sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"; \
+    tar -xzf /tmp/sing-box.tar.gz -C /tmp; \
+    cp "/tmp/sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box" /usr/local/bin/sing-box; \
+    chmod +x /usr/local/bin/sing-box; \
+    /usr/local/bin/sing-box version; \
+    rm -rf /tmp/sing-box*
 
 # Copy compiled Komari telemetry agent
 COPY --from=agent-builder /usr/local/bin/komari-agent /usr/local/bin/komari-agent

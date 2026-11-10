@@ -63,12 +63,15 @@ RUN set -eux; \
 
 # Download and install sing-box (not shipped in Alpine 3.20 repos:
 # `apk add sing-box` fails the build with "no such package" — this broke
-# every deploy after 2026-10-17, including the singleton-guard fix)
+# every deploy after 2026-10-17, including the singleton-guard fix).
+# Use the -musl tarball: it is statically linked, so it runs on Alpine;
+# the plain linux-amd64 build is glibc-linked and fails with "not found"
+# inside the container (2026-11-10 c323cbb build).
 RUN set -eux; \
     echo "Downloading sing-box ${SINGBOX_VERSION}..."; \
-    curl -sSL -o /tmp/sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"; \
+    curl -sSL -o /tmp/sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64-musl.tar.gz"; \
     tar -xzf /tmp/sing-box.tar.gz -C /tmp; \
-    cp "/tmp/sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box" /usr/local/bin/sing-box; \
+    cp "/tmp/sing-box-${SINGBOX_VERSION}-linux-amd64-musl/sing-box" /usr/local/bin/sing-box; \
     chmod +x /usr/local/bin/sing-box; \
     /usr/local/bin/sing-box version; \
     rm -rf /tmp/sing-box*

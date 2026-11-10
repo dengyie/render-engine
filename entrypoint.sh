@@ -355,6 +355,10 @@ fi
 # Start Komari Agent (Optional Extension, log streaming)
 if [ "$ENABLE_KOMARI" = "true" ] && [ -x /usr/local/bin/komari-agent ] && [ -f /etc/komari-agent.env ]; then
     log "Starting komari-agent..."
+    # Singleton guard (2026-11-10): a stale agent can survive a hot reload
+    # while the watchdog thinks it died; a second instance with the same token
+    # kicks the first off the server ("has connection exist" storm).
+    pkill -f "^/usr/local/bin/komari-agent" 2>/dev/null || true
     (
         set -a
         . /etc/komari-agent.env
@@ -502,8 +506,22 @@ while true; do
     fi
 
     # Check Komari Agent (Only if enabled, with circuit breaker)
+    # Singleton guard (2026-11-10): liveness is judged by a live process scan,
+    # not by the stored PID alone — the stored PID can go stale after a hot
+    # reload while the old agent is still alive, and spawning a second one
+    # with the same token makes the two kick each other off the server
+    # ("has connection exist" storm, 2026-11-09/10: ~900 in 36h).
     if [ "$ENABLE_KOMARI" = "true" ] && [ -n "$PID_KOMARI" ]; then
-        if kill -0 "$PID_KOMARI" 2>/dev/null; then
+        _komari_live="$(pgrep -f "^/usr/local/bin/komari-agent" 2>/dev/null || true)"
+        if [ -n "$_komari_live" ]; then
+            # Adopt the live PID and drop any extra duplicates.
+            PID_KOMARI="$(printf '%s\n' "$_komari_live" | head -n 1)"
+            if [ "$(printf '%s\n' "$_komari_live" | wc -l)" -gt 1 ]; then
+                warn "duplicate komari-agent processes detected, keeping PID $PID_KOMARI"
+                printf '%s\n' "$_komari_live" | tail -n +2 | while read -r _dup_pid; do
+                    kill -9 "$_dup_pid" 2>/dev/null || true
+                done
+            fi
             FAIL_COUNT_KOMARI=0
         else
             ((FAIL_COUNT_KOMARI++)) || true

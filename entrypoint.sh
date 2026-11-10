@@ -221,7 +221,7 @@ export AGENT_INCLUDE_NICS="eth0"
 export AGENT_DISABLE_WEB_SSH="true"
 export AGENT_DISABLE_AUTO_UPDATE="true"
 export AGENT_MONTH_ROTATE="1"
-export AGENT_INTERVAL="3"
+export AGENT_INTERVAL="10"
 export AGENT_PREFER_IP_VERSION="4"
 EOF
         chmod 600 /etc/komari-agent.env
